@@ -13,13 +13,8 @@ import java.util.function.Predicate;
 public class MainApplication {
 
     private static final String FILE_NAME = "src/main/resources/data.csv";
-
     private static final double LESS_THAN_MULTIPLIER = 1.2;
     private static final double MORE_THAN_MULTIPLIER = 1.5;
-    private static final Map<Integer, List<Employee>> managerToEmployees = new HashMap<>();
-    private static final Map<Integer, Double> managerToAverageSalary = new HashMap<>();
-    private static final Map<Integer, Integer> employeeToDepth = new HashMap<>();
-
     private static Integer ceoId;
 
     public static void main(String... args) {
@@ -28,31 +23,31 @@ public class MainApplication {
         List<Employee> employeeList = CsvUtils.getEmployeesFromCsv(args != null && args.length > 0 ? args[0] : FILE_NAME);
 
         // Build the map containing managers as keys and their employees as values
-        buildManagerToEmployeesMap(employeeList);
+        Map<Integer, List<Employee>> managerToEmployees = buildManagerToEmployeesMap(employeeList);
 
         // Calculate average salary for the direct subordinates of each manager
-        calculateAverageSalaries();
+        Map<Integer, Double> managerToAverageSalary = calculateAverageSalaries(managerToEmployees);
 
         // Create the predicate for filtering the managers that are earning less than 20% more than average of direct subordinates
         Predicate<Employee> lessThanPredicate = employee -> employee.salary() < managerToAverageSalary.get(employee.id()) * LESS_THAN_MULTIPLIER;
 
         // Create the mapper containing the managers that are earning less than 20% more than average of direct subordinates and by how much
-        Function<Employee, Pair<Double>> lessThanMapper = employee -> new Pair<>(employee.id(), managerToAverageSalary.get(employee.id()) * LESS_THAN_MULTIPLIER - employee.salary());
+        Function<Employee, Pair<Double>> lessThanMapper = employee -> new Pair<>(employee.id(), formatDoubleWithTwoDecimals(managerToAverageSalary.get(employee.id()) * LESS_THAN_MULTIPLIER - employee.salary()));
 
         // Get the managers that are earning less than 20% more than average of direct subordinates
-        List<Pair<Double>> managersEarningLess = findManagersByFilter(employeeList, lessThanPredicate, lessThanMapper);
+        List<Pair<Double>> managersEarningLess = findManagersByFilter(managerToEmployees, employeeList, lessThanPredicate, lessThanMapper);
 
         // Create the predicate for filtering the managers that are earning more than 50% more than average of direct subordinates
         Predicate<Employee> moreThanPredicate = employee -> employee.salary() > managerToAverageSalary.get(employee.id()) * MORE_THAN_MULTIPLIER;
 
         // Create the mapper containing the managers that are earning more than 50% more than average of direct subordinates and by how much
-        Function<Employee, Pair<Double>> moreThanMapping = employee -> new Pair<>(employee.id(), employee.salary() - managerToAverageSalary.get(employee.id()) * MORE_THAN_MULTIPLIER);
+        Function<Employee, Pair<Double>> moreThanMapping = employee -> new Pair<>(employee.id(), formatDoubleWithTwoDecimals(employee.salary() - managerToAverageSalary.get(employee.id()) * MORE_THAN_MULTIPLIER));
 
         // Get the managers that are earning more than 50% more than average of direct subordinates
-        List<Pair<Double>> managersEarningMore = findManagersByFilter(employeeList, moreThanPredicate, moreThanMapping);
+        List<Pair<Double>> managersEarningMore = findManagersByFilter(managerToEmployees, employeeList, moreThanPredicate, moreThanMapping);
 
         // Get the employees that have more than 4 managers between them and the CEO
-        List<Pair<Integer>> employeesWithLongerLine = findEmployeesWithLongerLine(employeeList);
+        List<Pair<Integer>> employeesWithLongerLine = findEmployeesWithLongerLine(managerToEmployees, employeeList);
 
         // Print the expected results
         printResults(managersEarningLess, "earns less than expected by");
@@ -64,28 +59,35 @@ public class MainApplication {
      * Create the map containing the managerIds as keys and the list of direct subordinates for each manager as values
      * @param employeeList The list of employees
      */
-    private static void buildManagerToEmployeesMap(List<Employee> employeeList) {
+    private static Map<Integer, List<Employee>> buildManagerToEmployeesMap(List<Employee> employeeList) {
+        Map<Integer, List<Employee>> managerToEmployees = new HashMap<>();
         employeeList.stream().filter(employee -> employee.managerId() != null)
                 .forEach(employee ->
                         managerToEmployees.computeIfAbsent(employee.managerId(), value -> new ArrayList<>()).add(employee));
+        return managerToEmployees;
     }
 
     /**
      * Calculate the average salary of the direct subordinates for each manager
      */
-    private static void calculateAverageSalaries() {
-        managerToEmployees.forEach((key, value) -> managerToAverageSalary.put(key, value.stream().mapToDouble(Employee::salary).sum() / value.size()));
+    private static Map<Integer, Double> calculateAverageSalaries(Map<Integer, List<Employee>> managerToEmployees) {
+        Map<Integer, Double> managerToAverageSalary = new HashMap<>();
+        managerToEmployees.forEach((key, value) -> managerToAverageSalary.put(key,
+                formatDoubleWithTwoDecimals(value.stream().mapToDouble(Employee::salary).average().orElse(0))));
+        return managerToAverageSalary;
     }
 
     /**
      * Filter the list of employees based on the provided filter and maps each employee to a Pair<Double> object using the given mapper
      * Only employees that are found in the managerToEmployee map are taken into consideration
+     * @param managerToEmployees The map containing the managerIds as keys and the list of direct subordinates for each manager as values
      * @param employeeList The list of employees that should be filtered
      * @param filter The predicate used to filter the employees
      * @param mapper The function used to map each filtered employee
      * @return A list containing Pair objects that hold each managerId together with the salary difference
      */
-    private static List<Pair<Double>> findManagersByFilter(List<Employee> employeeList, Predicate<Employee> filter,
+    private static List<Pair<Double>> findManagersByFilter(Map<Integer, List<Employee>> managerToEmployees,
+                                                           List<Employee> employeeList, Predicate<Employee> filter,
                                                            Function<Employee, Pair<Double>> mapper) {
         return employeeList.stream()
                 .filter(employee -> managerToEmployees.containsKey(employee.id()))
@@ -96,25 +98,26 @@ public class MainApplication {
 
     /**
      * Get the list of employees that have more than 4 managers between them and the CEO and by how much
+     * @param managerToEmployees The map containing the managerIds as keys and the list of direct subordinates for each manager as values
      * @param employeeList The list of employees
      * @return the list of employees that have more than 4 managers between them and the CEO and by how much
      */
-    private static List<Pair<Integer>> findEmployeesWithLongerLine(List<Employee> employeeList) {
+    private static List<Pair<Integer>> findEmployeesWithLongerLine(Map<Integer, List<Employee>> managerToEmployees,
+                                                                   List<Employee> employeeList) {
         return employeeList.stream()
-                .filter(employee -> calculateDepthToCeo(employee.id()) > 4)
-                .map(employee -> new Pair<>(employee.id(), calculateDepthToCeo(employee.id())- 4))
+                .filter(employee -> calculateDepthToCeo(managerToEmployees, employee.id()) > 4)
+                .map(employee -> new Pair<>(employee.id(), calculateDepthToCeo(managerToEmployees, employee.id())- 4))
                 .toList();
     }
 
     /**
      * Calculate how many managers does an employee have between them and the CEO
+     * @param managerToEmployees The map containing the managerIds as keys and the list of direct subordinates for each manager as values
      * @param employeeId The id of the employee
      * @return The number of managers that an employee have between them and the CEO
      */
-    private static int calculateDepthToCeo(int employeeId) {
-        if (employeeToDepth.containsKey(employeeId)) {
-            return employeeToDepth.get(employeeId);
-        }
+    private static int calculateDepthToCeo(Map<Integer, List<Employee>> managerToEmployees, int employeeId) {
+
         int managerId = managerToEmployees.entrySet().stream()
                 .filter(entry -> entry.getValue().stream().map(Employee::id).toList().contains(employeeId))
                 .map(Map.Entry::getKey)
@@ -124,9 +127,16 @@ public class MainApplication {
         }
 
         // if the employee is the CEO, or the manager is the CEO, skip increasing depth
-        int depth = managerId == 0 || managerId == ceoId ? 0 : calculateDepthToCeo(managerId) + 1;
-        employeeToDepth.put(employeeId, depth);
-        return depth;
+        return managerId == 0 || managerId == ceoId ? 0 : calculateDepthToCeo(managerToEmployees, managerId) + 1;
+    }
+
+    /**
+     * Receives a double value and formats it to have two decimals
+     * @param value The double value to be formatted
+     * @return The formatted double value containing two decimals
+     */
+    private static Double formatDoubleWithTwoDecimals (Double value) {
+        return Math.round(value * 100d) / 100d;
     }
 
     private static <T> void printResults(List<Pair<T>> pairs, String message) {

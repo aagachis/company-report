@@ -30,7 +30,7 @@ public class CsvUtils {
             while ((line = fileReader.readLine()) != null) {
                 String[] parts = line.split(COMMA_DELIMITER);
                 if (indexLine++ != 0 && parts.length >= 4) {
-                    Employee employee = new Employee(Integer.parseInt(parts[0]), parts[1], parts[2], Long.valueOf(parts[3]), parts.length == 4 ? null : Integer.parseInt(parts[4]));
+                    Employee employee = new Employee(Integer.parseInt(parts[0]), parts[1], parts[2], Double.valueOf(parts[3]), parts.length == 4 ? null : Integer.parseInt(parts[4]));
                     employeeList.add(employee);
                 }
             }
