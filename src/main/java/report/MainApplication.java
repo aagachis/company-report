@@ -41,7 +41,7 @@ public class MainApplication {
                         formatDoubleWithTwoDecimals(employee.salary() - managerToAverageSalary.get(employee.id()) * MORE_THAN_MULTIPLIER)));
 
         // Get the employees that have more than 4 managers between them and the CEO
-        List<Pair<Integer>> employeesWithLongerLine = findEmployeesWithLongerLine(managerToEmployees, employeeList);
+        List<Pair<Integer>> employeesWithLongerLine = findEmployeesWithLongerReportingLine(managerToEmployees, employeeList);
 
         // Print the expected results
         printResults(managersEarningLess, "earns less than expected by");
@@ -95,8 +95,8 @@ public class MainApplication {
      * @param employeeList       The list of employees
      * @return the list of employees that have more than 4 managers between them and the CEO and by how much
      */
-    private static List<Pair<Integer>> findEmployeesWithLongerLine(Map<Integer, List<Employee>> managerToEmployees,
-                                                                   List<Employee> employeeList) {
+    private static List<Pair<Integer>> findEmployeesWithLongerReportingLine(Map<Integer, List<Employee>> managerToEmployees,
+                                                                            List<Employee> employeeList) {
         return employeeList.stream()
                 .filter(employee -> calculateDepthToCeo(managerToEmployees, employee.id()) > 4)
                 .map(employee -> new Pair<>(employee.id(), calculateDepthToCeo(managerToEmployees, employee.id()) - 4))
