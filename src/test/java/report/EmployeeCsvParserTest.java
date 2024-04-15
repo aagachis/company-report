@@ -3,9 +3,12 @@ package report;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import report.exception.InvalidDataException;
 import report.model.Employee;
 
 import java.io.ByteArrayOutputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.util.List;
 
@@ -13,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class EmployeeCsvParserTest {
 
@@ -31,12 +34,12 @@ class EmployeeCsvParserTest {
     }
 
     @Test
-    void testReadFromCsvValidPath() {
+    void testReadFromCsvValidPath() throws IOException {
         // setup
         String filePath = "src/test/resources/data.csv";
 
         // execute
-        List<Employee> employeeList = EmployeeCsvParser.parseCsvIntoEmployeeList(filePath);
+        List<Employee> employeeList = EmployeeCsvParser.transformIntoEmployee(filePath);
 
         // verify
         assertNotNull(employeeList);
@@ -64,32 +67,22 @@ class EmployeeCsvParserTest {
     void testReadFromCsvValidPathButInvalidData() {
         // setup
         String filePath = "src/test/resources/wrongFormatData.csv";
+        String expectedMessage = "Invalid id format in line 3";
 
         // execute
-        List<Employee> employeeList = EmployeeCsvParser.parseCsvIntoEmployeeList(filePath);
+        Exception exception = assertThrows(InvalidDataException.class, () -> EmployeeCsvParser.transformIntoEmployee(filePath));
 
         // verify
-        assertNotNull(employeeList);
-        assertFalse(employeeList.isEmpty());
-        assertEquals(1, employeeList.size());
-        assertEquals(123, employeeList.get(0).id());
-        assertEquals("Joe", employeeList.get(0).firstName());
-        assertEquals("Doe", employeeList.get(0).lastName());
-        assertEquals(80000, employeeList.get(0).salary());
-        assertNull(employeeList.get(0).managerId());
-        assertEquals("""
-                Invalid id format in line 3
-                Invalid salary format in line 4
-                Invalid manager id format in line 5""", outputStreamCaptor.toString().trim());
+        assertEquals(expectedMessage, exception.getMessage());
     }
 
     @Test
-    void testReadFromCsvValidPathButEmptyFile() {
+    void testReadFromCsvValidPathButEmptyFile() throws IOException {
         // setup
         String filePath = "src/test/resources/emptyData.csv";
 
         // execute
-        List<Employee> employees = EmployeeCsvParser.parseCsvIntoEmployeeList(filePath);
+        List<Employee> employees = EmployeeCsvParser.transformIntoEmployee(filePath);
 
         // verify
         assertEquals(0, employees.size());
@@ -100,13 +93,12 @@ class EmployeeCsvParserTest {
     void testReadFromCsvInvalidPath() {
         // setup
         String filePath = "invalid_path";
+        String expectedMessage = "invalid_path (No such file or directory)";
 
         // execute
-        List<Employee> employeeList = EmployeeCsvParser.parseCsvIntoEmployeeList(filePath);
+        Exception exception = assertThrows(FileNotFoundException.class, () -> EmployeeCsvParser.transformIntoEmployee(filePath));
 
         // verify
-        assertNotNull(employeeList);
-        assertTrue(employeeList.isEmpty());
-        assertEquals("The file cannot be read: invalid_path (No such file or directory)", outputStreamCaptor.toString().trim());
+        assertEquals(expectedMessage, exception.getMessage());
     }
 }

@@ -1,9 +1,11 @@
 package report.service;
 
 import report.EmployeeCsvParser;
+import report.exception.InvalidDataException;
 import report.model.Employee;
 import report.model.Pair;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -12,7 +14,6 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import static report.configuration.ParametersConfig.FILE_NAME;
 import static report.configuration.ParametersConfig.LESS_THAN_MULTIPLIER;
 import static report.configuration.ParametersConfig.MAX_DEPTH_TO_CEO;
 import static report.configuration.ParametersConfig.MORE_THAN_MULTIPLIER;
@@ -20,11 +21,18 @@ import static report.configuration.ParametersConfig.MORE_THAN_MULTIPLIER;
 public class EmployeeReportServiceImpl implements EmployeeReportService {
 
     private static int ceoId;
+    private final PrintReportService printReportService = new PrintReportServiceImpl();
 
     @Override
-    public void generateCompanyReport(String... args) {
-        // Load employee data from CSV file
-        List<Employee> employeeList = EmployeeCsvParser.parseCsvIntoEmployeeList(args != null && args.length > 0 ? args[0] : FILE_NAME);
+    public void generateCompanyReport(String filePath) {
+        List<Employee> employeeList;
+        try {
+            // Load employee data from CSV file
+            employeeList = EmployeeCsvParser.transformIntoEmployee(filePath);
+        } catch (IOException | InvalidDataException e) {
+            System.out.println("The file cannot be read: " + e.getMessage());
+            return;
+        }
 
         // Build the map containing managers as keys and their employees as values
         Map<Integer, List<Employee>> managerToEmployees = buildManagerToEmployeesMap(employeeList);
@@ -48,9 +56,10 @@ public class EmployeeReportServiceImpl implements EmployeeReportService {
         List<Pair<Integer>> employeesWithLongerLine = findEmployeesWithLongerReportingLine(managerToEmployees, employeeList);
 
         // Print the expected results
-        printResults(managersEarningLess, "earns less than expected by");
-        printResults(managersEarningMore, "earns more than expected by");
-        printResults(employeesWithLongerLine, "has a reporting line longer than expected by");
+        printReportService.printResults(managersEarningLess, "earns less than expected by");
+        printReportService.printResults(managersEarningMore, "earns more than expected by");
+        printReportService.printResults(employeesWithLongerLine, "has a reporting line longer than expected by");
+
     }
 
     /**
@@ -133,10 +142,5 @@ public class EmployeeReportServiceImpl implements EmployeeReportService {
 
     private static Double formatDoubleWithTwoDecimals(Double value) {
         return Math.round(value * 100d) / 100d;
-    }
-
-    private static <T> void printResults(List<Pair<T>> pairs, String message) {
-        pairs.forEach(pair ->
-                System.out.println("Employee with id=" + pair.id() + " " + message + " " + pair.diff()));
     }
 }

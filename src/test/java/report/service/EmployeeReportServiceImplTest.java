@@ -116,7 +116,28 @@ class EmployeeReportServiceImplTest {
                         300,Alice,Hasacat,82944,124
                         305,Brett,Hardleaf,69120,300
                         306,A,B,57600,305
-                        307,C,D,48000,306""", "")
+                        307,C,D,48000,306""", ""),
+                // bad file format, id is invalid in line 2
+                Arguments.of("""
+                                Id,firstName,lastName,salary,managerId
+                                123a,Joe,Doe,87919.68,
+                                124,Martin,Chekov,99532.8,123""",
+                        """
+                                The file cannot be read: Invalid id format in line 2"""),
+                // bad file format, salary is invalid in line 2
+                Arguments.of("""
+                                Id,firstName,lastName,salary,managerId
+                                123,Joe,Doe,87919.68a,
+                                124,Martin,Chekov,99532.8,123""",
+                        """
+                                The file cannot be read: Invalid salary format in line 2"""),
+                // bad file format, manager id is invalid in line 3
+                Arguments.of("""
+                                Id,firstName,lastName,salary,managerId
+                                123,Joe,Doe,87919.68,
+                                124,Martin,Chekov,99532.8,123a""",
+                        """
+                                The file cannot be read: Invalid manager id format in line 3""")
         );
     }
 

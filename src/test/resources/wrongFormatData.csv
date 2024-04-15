@@ -1,5 +1,5 @@
 Id,firstName,lastName,salary,managerId
 123,Joe,Doe,80000,
 126a,A,B,47000,123
-127,C,D,47000e,123
-128,E,F,47000,123f
+127,C,D,47000,123
+128,E,F,47000,123
